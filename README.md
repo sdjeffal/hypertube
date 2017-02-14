@@ -1,5 +1,5 @@
 # hypertube
-Last project web of school 42, website streaming bittorent.
+**Last project web of school 42, website streaming bittorent.**
 
 Le but de ce projet est de créer une application web permettant à un utilisateur de rechercher et visionner des vidéos.
 Le lecteur sera directement intégré au site, et les vidéos seront téléchargées au travers du protocole BitTorrent.
