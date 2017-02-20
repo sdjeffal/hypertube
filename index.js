@@ -1,9 +1,4 @@
-import PirateBay from 'thepiratebay'
+import Torrent from './Torrent'
 
-const Piratebay = require('thepiratebay')
-
-PirateBay.search('Game of Thrones', {
-  category: 205
-})
-.then(results => console.log(results))
-.catch(err => console.log(err))
+let t = new Torrent();
+t.search('naruto').then((str) => {console.log(str)}).catch((err) => {console.log(err)});
