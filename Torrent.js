@@ -41,14 +41,7 @@ export default class Torrent {
             .catch(err => {reject(err)})
         })
 
-        let promiseYifi = new Promise((resolve, reject) => {
-            yify.search(name, (error, results) => {
-                if(error)
-                    reject(error)
-                else
-                    resolve(results)
-            })
-        })
+
 
         return Promise.all([promisePirate, promiseYifi]).then(results => {return results}).catch(err => {return err})
     }
