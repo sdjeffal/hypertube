@@ -5,9 +5,9 @@ const yify = require('yify-search');
 const PirateBay = require('thepiratebay');
 const parser = require('torrent-name-parser');
 
-export default class Torrent{
+export default class Torrent {
 
-    constructor(){
+    constructor() {
         this.torrent = undefined;
         this.site = undefined;
         this.title = undefined;
@@ -31,31 +31,25 @@ export default class Torrent{
         this.info = undefined;
     }
 
-    search(name){
-        return new Promise((resolve, reject) => {
+    search(name) {
+
+        let promisePirate = new Promise((resolve, reject) => {
             PirateBay.search(name)
             .then(results => {
                 resolve(results)
             })
-            .catch(err => {eject(err)})
+            .catch(err => {reject(err)})
         })
-        // yify.search(name, (error, results) => {
-        //     for(let r in results){
-        //     }
-        //     movies = results;
-        // })
-        // PirateBay.search(name)
-        // .then(results => {
-        //     if (results){
-        //         for(let r in results){
-        //             let movie = parser(results[r].name);
-        //             movie = imdb.getReq({ name: movie.title}).then(things => {console.log(things)}).catch(err => console.log(err))
-        //             results[r].imdb = movie
-        //         }
-        //         console.log(results);
-        //         return results;
-        //     }
-        // })
-        // .catch(err => console.log(err))
+
+        let promiseYifi = new Promise((resolve, reject) => {
+            yify.search(name, (error, results) => {
+                if(error)
+                    reject(error)
+                else
+                    resolve(results)
+            })
+        })
+
+        return Promise.all([promisePirate, promiseYifi]).then(results => {return results}).catch(err => {return err})
     }
 }

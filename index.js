@@ -1,4 +1,4 @@
-import Torrent from './Torrent'
+import Torrent from './torrent'
 
 let t = new Torrent();
-t.search('naruto').then((str) => {console.log(str)}).catch((err) => {console.log(err)});
+t.search('naruto');
