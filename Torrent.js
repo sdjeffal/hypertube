@@ -5,6 +5,8 @@ const yify = require('yify-search');
 const PirateBay = require('thepiratebay');
 const parser = require('torrent-name-parser');
 const lodash = require('lodash');
+const EventEmitter = require('events').EventEmitter;
+let event = new EventEmitter();
 
 export default class Torrent {
 
@@ -62,11 +64,18 @@ export default class Torrent {
                             movie.actor = result.actors
                             movie.summary = result.plot
                             movie.duration = result.runtime
+                            movies.push(movie)
+                            resolve(movies)
+                        })
+                        .catch(err => {
+
                         })
                     })
                 }
             })
-            .catch(err => {reject(err)})
+            .catch(err => {
+
+            })
         })
 
         let promiseYifi = new Promise((resolve, reject) => {
@@ -80,7 +89,6 @@ export default class Torrent {
 
         return Promise.all([promisePirate, promiseYifi])
         .then(results => {
-
             if (!lodash.isEmpty(results[0]) && !lodash.isEmpty(results[1])){
                 console.log('torrent found on piratebay and yify');
             }
@@ -98,7 +106,7 @@ export default class Torrent {
             return results
         })
         .catch(err => {
-            return err
+
         })
     }
 }
