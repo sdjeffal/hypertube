@@ -20,6 +20,8 @@ const fs = require('fs')
 const path = require('path')
 const srtToVtt = require('srt-to-vtt')
 const request = require('request');
+const SubtitleModel = require('../Models/Subtitle')
+
 
 router.get('/:hash', function(req, res) {
     Torrent(req.params.hash)
@@ -34,75 +36,137 @@ router.get('/:hash', function(req, res) {
 });
 
 router.get('/subtitles/:fileId', Auth.isLoggedIn, function(req, res) {
-	VideoModel.findOne({ _id: req.params.fileId }).exec().then((video) => {
-        if (video){
-            TorrentModel.findOne({ _id: video.torrentId }).exec().then((torrent) => {
-				OpenSubtitles.search({
-	                sublanguageid: 'all',
-	                filename: video.filename,
-	                limit: 'best',
-	                extensions: ['srt', 'vtt'],
-	                gzip: false
-	            }).then((subtitles) => {
-	                subtitles = lodash.pick(subtitles, ['fr', 'en'])
-					let promisesSubtitles = []
-	                for (let subtitle in subtitles) {
-						console.log(subtitles[subtitle]);
-	                    if (subtitles.hasOwnProperty(subtitle)) {
-	                        let pathSubtitle = path.join(Config.torrentEngineOpts.path, `${torrent._id}, ${video.filename}.${subtitle}.vtt`);
-							promisesSubtitles.push(
-								new Promise((resolve, reject) => {
-									const readStream = request({url: subtitles[subtitle].url, encoding: null}).on('error', (err) => {resolve()})
-			                        if (path.extname(subtitles[subtitle].filename) == '.srt'){
-			                            readStream.pipe(srtToVtt()).on('error', (err) => {resolve()})
-			                        }
-			                        if(path.extname(subtitles[subtitle].filename) == '.vtt' || path.extname(subtitles[subtitle].filename) == '.srt'){
-			                            readStream.pipe(fs.createWriteStream(pathSubtitle)).on('error', (err) => {resolve()})
-			                            .on('close', () => {
-											subtitles[subtitle].url = pathSubtitle
-											subtitles[subtitle].videoId = video._id
-											subtitles[subtitle].videoId = torrent._id
-											subtitles[subtitle].filename = `${video.filename}.${subtitle}.vtt`
-											subtitles[subtitle].filepath = pathSubtitle
-											resolve({[subtitle]: subtitles[subtitle]})
-			                            })
-			                        }
-								})
-							)
-	                    }
-	                }
-					Promise.all(promisesSubtitles).then(subtitles => {
-						//save db
-						subtitles = lodash.compact(subtitles)
-						res.json({response: subtitles})
-						res.end()
-					})
-	            })
-	            .catch( (err) => {
-	                console.log(err.message)
-	                res.status(404).end()
-	            })
-			})
+    //search video by videoId
+    console.log('search subtitle in database');
+    Subtitle.getList( req.params.fileId )
+    .then( (sub) => {
+        if (sub.length < 1){
+            console.log(`no subtitle in database`);
+            VideoModel.findOne({ _id: req.params.fileId }).exec().then((video) => {
+                if (video){
+                    //search torrent by video.torrentId
+                    TorrentModel.findOne({ _id: video.torrentId }).exec().then((torrent) => {
+                        if (torrent){
+                            //search subtitle on opensubtitle by video.filename
+                            console.log('search subtitle on opensubtitle');
+            				OpenSubtitles.search({
+            	                sublanguageid: 'all',
+            	                filename: video.filename,
+            	                limit: 'best',
+            	                extensions: ['srt', 'vtt'],
+            	                gzip: false
+            	            }).then((subtitles) => {
+                                if (subtitles){
+                                    console.log('subtitles found on opensubtitle');
+                                    //filter by language fr and en
+                                    subtitles = lodash.pick(subtitles, ['fr', 'en'])
+                					let promisesSubtitles = []
+                                    //for each subtitle, create pormise: readstream, if .srt convert .vtt and writestream
+                	                for (let subtitle in subtitles) {
+                	                    if (subtitles.hasOwnProperty(subtitle)) {
+                	                        let pathSubtitle = path.join(Config.torrentEngineOpts.path, torrent.hash, `${video.filename}.${subtitle}.vtt`);
+                							promisesSubtitles.push(
+                								new Promise((resolve, reject) => {
+                									const readStream = request({url: subtitles[subtitle].url, encoding: null}).on('error', (err) => {resolve()})
+                			                        if (path.extname(subtitles[subtitle].filename) == '.srt'){
+                			                            readStream.pipe(srtToVtt()).on('error', (err) => {
+                                                            console.log(err)
+                                                            resolve()
+                                                        })
+                			                        }
+                			                        if(path.extname(subtitles[subtitle].filename) == '.vtt' || path.extname(subtitles[subtitle].filename) == '.srt'){
+                			                            readStream.pipe(fs.createWriteStream(pathSubtitle)).on('error', (err) => {
+                                                            console.log(err)
+                                                            resolve()
+                                                        })
+                			                            .on('close', () => {
+                											subtitles[subtitle].videoId = video._id
+                											subtitles[subtitle].torrentId = torrent._id
+                											subtitles[subtitle].filename = `${video.filename}.${subtitle}.vtt`
+                											subtitles[subtitle].filepath = pathSubtitle
+                                                            subtitles[subtitle].language = subtitle
+                                                            subtitles[subtitle].status = "downloaded"
+                                                            console.log(`${subtitles[subtitle].filename} downloaded`);
+                											resolve({[subtitle]: subtitles[subtitle]})
+                			                            })
+                			                        }
+                								})
+                							)
+                	                    }
+                	                }
+                                    //execution sync all promiseSubtitle where download subtitles
+                					Promise.all(promisesSubtitles).then(subtitles => {
+                                        let promiseSave = []
+                                        //remove value null or undefined
+                						subtitles = lodash.compact(subtitles)
+                                        subtitles.forEach((subtitle) => {
+                                            //for each subtitle, save in database
+                                            for (let language in subtitle) {
+                                                if (subtitle.hasOwnProperty(language)) {
+                                                    promiseSave.push(
+                                                        new Promise((resolve, reject) => {
+                                                            let subtitleModel = new SubtitleModel(subtitle[language])
+                                                            subtitleModel.save()
+                                                            .then(save => {
+                                                                console.log(`subtitle ${save.filename} saved in databse`);
+                                                                resolve(save)
+                                                            })
+                                                            .catch(err => {console.log(err)})
+                                                        })
+                                                    )
+                                                }
+                                            }
+                                        })
+                                        //execution sync all promiseSave where save subtitles in DB
+                                        Promise.all(promiseSave).then(saves => {
+                                            //after save, send all subtitles in response
+                                            res.json({response: saves})
+                    						res.end()
+                                        }).catch( (err) => {
+                        	                console.log(err)
+                        	                res.status(404).end()
+                        	            })
+                					})
+                                }
+                                else {
+                                    console.log(`the subtitles not found on opensubtitle.`)
+                                    res.status(404).end()
+                                }
+            	            })
+            	            .catch( (err) => {
+            	                console.log(err.message)
+            	                res.status(404).end()
+            	            })
+                        }
+                        else{
+                            console.log(`torrentId ${video.torrentId} not found in Database.`)
+                            res.status(404).end()
+                        }
+        			}).catch( (err) => {
+                        console.log(err.message)
+                        res.status(404).end()
+                    })
+                }
+                else{
+                    console.log(`videoId: ${req.params.fieldId} not found in Database.`)
+                    res.status(404).end()
+                }
+            })
+            .catch( (err) => {
+                console.log(err.message)
+                res.status(404).end()
+            })
         }
-        else{
-            console.log(`videoId: ${req.params.fieldId} not found in Database.`)
-            res.status(404).end()
+        else {
+            console.log(`subtitle found in Database.`)
+            res.json( { response: sub } )
+            res.end()
         }
     })
     .catch( (err) => {
         console.log(err.message)
         res.status(404).end()
     })
-
-    // Subtitle.getList( req.params.fileId )
-    // .then( (subtitle) => {
-    //     res.json( { response: subtitle } )
-    //     res.end()
-    // })
-    // .catch( (err) => {
-    //     console.log(err.message)
-    //     res.status(404).end()
-    // })
 })
 
 router.get('/subtitles/:subId/sub.vtt', function(req, res) {
@@ -110,7 +174,7 @@ router.get('/subtitles/:subId/sub.vtt', function(req, res) {
     .then( (subtitle) => {
         TorrentModel.findOne({_id: subtitle.torrentId}).then((torrent) => {
             if (subtitle)
-                res.sendFile(`${Config.torrentEngineOpts.path}/${torrent.hash}/${subtitle.filepath}`);
+                res.sendFile(`${subtitle.filepath}`);
             else
                 res.status(404).end()
         })
