@@ -3,6 +3,7 @@ module.exports = {
 
 	fr:{
 		//erreurs
+		sub_corrupt : "sous-titres non disponibles",
 		only_letters : "Lettres uniquement acceptées",
 		email_invalid : "Cet adresse email n'est pas valide",
 		email_used : "Cette adresse email est déjà associée à un compte",
@@ -80,6 +81,7 @@ module.exports = {
 	en:{
 
 		//errors
+		sub_corrupt : "subtitles unavailable",
 		only_letters : "Only letters allowed",
 		email_invalid : "This email is not valid",
 		email_used : "This email is already associated to an account",

@@ -6,7 +6,7 @@ const   Config = require('../config/config.js'),
         path = require('path');
 
 /**
- ** Database requirements
+ ** Database requirements 
  **/
 const   ObjectId = require('mongoose').Types.ObjectId,
         TorrentModel = require('../Models/Torrent.js'),
@@ -23,6 +23,31 @@ const   torrentStream = require('torrent-stream'),
         fileName = require('file-name'),
         mime = require('mime');
 
+function linkSubtitleToVideo( torId )
+{
+    VideoModel.find({ torrentId: torId }, (err, videos) => {
+        if (!err && videos !== null)
+        {
+            console.log('Linking subtitles to videos')
+            if (videos.length === 1)
+                SubtitleModel.update(
+                    { videoId: null, torrentId: torId },
+                    { $set: { videoId: videos[0]._id } },
+                    { multi: true }
+                ).exec()
+            else
+            {
+                videos.forEach((video) => {
+                    SubtitleModel.update(
+                        { filename: {$regex: fileName(video.filename)}, videoId: null, torrentId: video.torrentId },
+                        { $set: { videoId: video._id } },
+                        { multi: true }
+                    ).exec()
+                })
+            }
+        }
+    })
+}
 
 function _getVideos( torId )
 {
@@ -87,6 +112,19 @@ var Torrent = function ( TorrentHash )
                                     })
                                 )
                             }
+                            else if (isSubtitle(file.name))
+                            {
+                                console.log(file.name + ' recognized as subtitle')
+                                // Downloading subtitle
+                                file.createReadStream()
+
+                                Subtitle.add(file.path, file.name, tor._id)
+                                .then( (newSub) => {
+                                    // Convert to WebVTT if needed
+                                    if (mime.lookup(newSub.filename) !== "text/vtt")
+                                        SubtitlesToConvert.push({ id: newSub._id, basepath: EngineConf.path })
+                                })
+                            }
                             else
                                 console.log(file.name + ' not recognized')
                         })
@@ -107,6 +145,18 @@ var Torrent = function ( TorrentHash )
                         {
                             e.destroy()
                             resolve([])
+                        }
+                    })
+                    e.on('idle', function() {
+
+                        console.log('- Idling -')
+                        //console.log(SubtitlesToConvert.length)
+                        if (SubtitlesToConvert.length)
+                        {
+                            SubtitlesToConvert.forEach( (sub, basepath) => {
+                                Subtitle.convert( sub.id, sub.basepath )
+                            })
+                            SubtitlesToConvert = [] // idle event can be triggered multiple time
                         }
                     })
                     .on('download', (pcs) => {

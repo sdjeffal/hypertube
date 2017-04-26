@@ -186,6 +186,7 @@
                   if (navigator.userAgent.includes("Chrome"))
                   {
                     console.log('play in mp4')
+                    let apiRoad = `http://localhost:3000/torrents/` + encodeURIComponent(this.$route.params.hash) + `/` + encodeURIComponent(id)
                     this.playerOptions.sources.length = 0
                     this.timecount = 60
                     this.timer = 60000
@@ -194,6 +195,11 @@
                     this.mp4 = true
                   }
                   this.waiting = false
+                  notif.showNotification(
+                    'sub_corrupt',
+                    "alert-danger",
+                    true
+                    )
                 }
               }
               else if (array[i].status === 'not downloaded')
@@ -221,6 +227,8 @@
       onPlayerPlay(player) {
         if (this.first)
         {
+          if (this.mp4 === true)
+            document.getElementById('lecteur').firstChild.childNodes[6].childNodes[3].childNodes[0].innerHTML = '-:-:-'
           this.loading = true;
           player.pause();
           this.first = false;
@@ -232,27 +240,29 @@
           this.timeout = setTimeout(() => {
             this.loading = false
             player.play()
-            // if (this.mp4 === true)
-            //   setTimeout(() => {$(".video-player").addClass("noPause")}, 2000)
           }, this.timer)
         }
         else
         {
-          if(this.mp4 === true){
+          if(this.mp4 === true)
+          {
             this.time = 0
             let timer = document.getElementById('lecteur').firstChild.childNodes[6].childNodes[1].childNodes[0]
+            document.getElementById('lecteur').firstChild.childNodes[6].childNodes[3].childNodes[0].innerHTML = '-:-:-'
             this.countdown = setInterval(() => {
               this.time++
               let date = new Date(null);
               date.setSeconds(this.time);
               timer.innerHTML = date.toISOString().substr(15, 4);
+              document.getElementById('lecteur').firstChild.childNodes[6].childNodes[3].childNodes[0].innerHTML = '-:-:-'
             }, 1000);
           }
         }
       },
 
       onPlayerStop(player){
-        if(this.mp4 === true){
+        if(this.mp4 === true)
+        {
           clearInterval(this.countdown)
           let timer = document.getElementById('lecteur').firstChild.childNodes[6].childNodes[1].childNodes[0]
           let date = new Date(null);
@@ -317,9 +327,8 @@
     /*margin: -24% auto;*/
   }
 
-  /*.noPause {
+  .video-js.vjs-playing .vjs-tech {
     pointer-events: none;
-  }*/
-
-
+  }
+  
 </style>

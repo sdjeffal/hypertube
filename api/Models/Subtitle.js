@@ -13,10 +13,8 @@ const SubtitleSchema = new Schema({
     torrentId: {type: Schema.Types.ObjectId, required: true},
     videoId: {type: Schema.Types.ObjectId, default: null},
     language: {type: String, length: 2},
-    status: {type: String, default: "not downloaded"}
+    status : {type: String, default: "not downloaded"}
 });
-
-mongoose.Promise = global.Promise;
 
 var Subtitle = mongoose.model('Subtitle', SubtitleSchema);
 
