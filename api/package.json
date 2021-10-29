@@ -17,7 +17,7 @@
     "cookie-parser": "^1.4.3",
     "cookies": "^0.7.0",
     "cors": "^2.8.3",
-    "detect-character-encoding": "^0.3.1",
+    "detect-character-encoding": "^7.0.0",
     "express": "^4.15.2",
     "express-session": "^1.15.1",
     "extratorrent-api": "^1.1.2",
